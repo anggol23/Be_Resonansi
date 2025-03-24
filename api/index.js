@@ -5,10 +5,15 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import passport from 'passport';
-import path from 'path';
+import MongoStore from 'connect-mongo';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import MongoStore from 'connect-mongo';
+import path from 'path';
+
+// Load environment variables lebih awal
+dotenv.config();
+
+// Import routes & middleware setelah dotenv
 import userRoutes from './routes/user.route.js';
 import authRoutes from './routes/auth.route.js';
 import postRoutes from './routes/post.route.js';
@@ -16,10 +21,7 @@ import commentRoutes from './routes/comment.route.js';
 import unduhanRoutes from './routes/unduhan.route.js';
 import './middlewares/passport.js';
 
-// Load environment variables
-dotenv.config();
-
-// Validasi variabel environment
+// Validasi variabel environment yang wajib
 const REQUIRED_ENV_VARS = ['MONGO', 'JWT_SECRET', 'SESSION_SECRET', 'PORT'];
 REQUIRED_ENV_VARS.forEach((key) => {
   if (!process.env[key]) {
@@ -29,7 +31,7 @@ REQUIRED_ENV_VARS.forEach((key) => {
 });
 
 // Konfigurasi
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 const MONGO_URI = process.env.MONGO;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL?.split(",") || [
@@ -64,7 +66,7 @@ const connectDB = async () => {
     console.log("✅ MongoDB Connected");
   } catch (error) {
     console.error("❌ MongoDB Connection Error:", error);
-    setTimeout(connectDB, 8080); // Coba reconnect dalam 5 detik
+    setTimeout(connectDB, 8080); 
   }
 };
 
@@ -86,9 +88,9 @@ app.use(session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: MONGO_URI,
-    ttl: 14 * 24 * 60 * 60, // Session berlaku 14 hari
+    ttl: 14 * 24 * 60 * 60, 
     autoRemove: 'interval',
-    autoRemoveInterval: 10, // Bersihkan session tiap 10 menit
+    autoRemoveInterval: 10,
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
@@ -108,17 +110,6 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/unduhan', unduhanRoutes);
 
-// Serve static files (Frontend)
-const clientPath = path.join(__dirname, '../client/dist');
-if (fs.existsSync(clientPath)) {
-  app.use(express.static(clientPath));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(clientPath, 'index.html'));
-  });
-  console.log("✅ Frontend ditemukan dan disajikan dari:", clientPath);
-} else {
-  console.warn("⚠️ WARNING: Folder 'client/dist' tidak ditemukan. Pastikan frontend sudah di-build.");
-}
 
 // Global Error Handler
 const isProduction = process.env.NODE_ENV === 'production';
