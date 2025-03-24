@@ -2,11 +2,11 @@ import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import passport from 'passport';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 import userRoutes from './routes/user.route.js';
 import authRoutes from './routes/auth.route.js';
@@ -17,6 +17,7 @@ import { errorHandler } from './utils/errorHandler.js';
 import './middlewares/passport.js';
 
 dotenv.config();
+
 const PORT = process.env.PORT;
 const MONGO_URI = process.env.MONGO;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -33,6 +34,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // Middleware
+app.use(helmet()); // Menambah keamanan header HTTP
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
@@ -46,10 +48,14 @@ app.use(cors({
 // MongoDB Connection
 const connectDB = async () => {
   try {
-    await mongoose.connect(MONGO_URI);
+    await mongoose.connect(MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
     console.log("✅ MongoDB Connected");
   } catch (error) {
     console.error("❌ MongoDB Connection Error:", error);
+    process.exit(1);
   }
 };
 
@@ -70,8 +76,9 @@ app.use(session({
   resave: false,
   saveUninitialized: true,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',  // Set to true in production
+    secure: process.env.NODE_ENV === 'production',  // Set true jika production
     httpOnly: true,
+    sameSite: 'strict',
     maxAge: 1000 * 60 * 60 * 24, // 1 day
   }
 }));
@@ -80,19 +87,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Global Error Handler
-app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-  const stackTrace = process.env.NODE_ENV === 'development' ? err.stack : null;
-
-  console.error(`🔥 Error: ${message}`);
-  res.status(statusCode).json({
-    success: false,
-    statusCode,
-    message,
-    stackTrace,
-  });
-});
+app.use(errorHandler);
 
 // Start Server setelah koneksi MongoDB berhasil
 connectDB().then(() => {
