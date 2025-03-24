@@ -17,7 +17,7 @@ import { errorHandler } from './utils/errorHandler.js';
 import './middlewares/passport.js';
 
 dotenv.config();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const MONGO_URI = process.env.MONGO;
 const JWT_SECRET = process.env.JWT_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
@@ -78,17 +78,6 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Serve Static Files for Production
-const clientPath = path.join(__dirname, '../client/dist');
-if (fs.existsSync(clientPath)) {
-  app.use(express.static(clientPath));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(clientPath, 'index.html'));
-  });
-} else {
-  console.warn("⚠️ WARNING: Folder 'client/dist' tidak ditemukan. Pastikan frontend sudah di-build.");
-}
 
 // Global Error Handler
 app.use((err, req, res, next) => {
