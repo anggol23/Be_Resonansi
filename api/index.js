@@ -35,7 +35,7 @@ const PORT = process.env.PORT || 5000; // Railway akan menetapkan port otomatis
 const MONGO_URI = process.env.MONGO;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(",").map(url => url.trim())
+  ? process.env.CLIENT_URL.split(',').map(url => url.trim())
   : [
       "https://jurnalresonansi.com",
       "https://api.jurnalresonansi.com",
@@ -52,13 +52,14 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// 🔥 Perbaikan CORS
+// 🔥 Perbaikan CORS dengan logging error
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || CLIENT_URL.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("CORS Not Allowed"));
+      console.warn(`🚫 CORS Blocked: ${origin}`);
+      callback(new Error("CORS Not Allowed"), false);
     }
   },
   credentials: true,
@@ -70,14 +71,26 @@ app.use(cors({
 // Tangani preflight request (OPTIONS)
 app.options('*', cors());
 
-// Fungsi koneksi ke MongoDB dengan retry otomatis
+// Fungsi koneksi ke MongoDB dengan retry maksimal 5 kali
+const MAX_RETRIES = 5;
+let retryCount = 0;
+
 const connectDB = async () => {
   try {
     await mongoose.connect(MONGO_URI);
     console.log("✅ MongoDB Connected");
+    retryCount = 0; // Reset jika berhasil
   } catch (error) {
-    console.error("❌ MongoDB Connection Error:", error);
-    setTimeout(connectDB, 5000); // Retry setiap 5 detik
+    console.error(`❌ MongoDB Connection Error (Attempt ${retryCount + 1}/${MAX_RETRIES}):`, error.message);
+
+    if (retryCount < MAX_RETRIES) {
+      retryCount++;
+      console.log("🔄 Retrying connection in 5 seconds...");
+      setTimeout(connectDB, 5000);
+    } else {
+      console.error("❌ Maximum retry attempts reached. Exiting...");
+      process.exit(1);
+    }
   }
 };
 
@@ -92,7 +105,7 @@ mongoose.connection.on("disconnected", () => {
   connectDB();
 });
 
-// Konfigurasi session dengan MongoStore
+// Konfigurasi session dengan MongoStore (cookie lebih aman)
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
@@ -104,8 +117,9 @@ app.use(session({
     autoRemoveInterval: 10,
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.USE_SECURE_COOKIES === 'true', // Bisa diatur di .env
     httpOnly: true,
+    sameSite: "none", // Untuk frontend di domain berbeda
     maxAge: 1000 * 60 * 60 * 24, // 1 hari
   }
 }));
@@ -113,6 +127,15 @@ app.use(session({
 // Konfigurasi Passport.js
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Logging waktu respons setiap request
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    console.log(`📡 [${req.method}] ${req.originalUrl} - ${Date.now() - start}ms`);
+  });
+  next();
+});
 
 // Register API routes
 app.use('/api/user', userRoutes);
