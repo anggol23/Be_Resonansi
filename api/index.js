@@ -22,7 +22,7 @@ import unduhanRoutes from './routes/unduhan.route.js';
 import './middlewares/passport.js';
 
 // Validasi variabel environment yang wajib
-const REQUIRED_ENV_VARS = ['MONGO', 'JWT_SECRET', 'SESSION_SECRET', 'PORT'];
+const REQUIRED_ENV_VARS = ['MONGO', 'JWT_SECRET', 'SESSION_SECRET'];
 REQUIRED_ENV_VARS.forEach((key) => {
   if (!process.env[key]) {
     console.error(`❌ ERROR: Variabel ${key} belum dikonfigurasi di .env`);
@@ -31,7 +31,7 @@ REQUIRED_ENV_VARS.forEach((key) => {
 });
 
 // Konfigurasi
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 5000; // Railway akan menetapkan port otomatis
 const MONGO_URI = process.env.MONGO;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL?.split(",") || [
@@ -66,7 +66,7 @@ const connectDB = async () => {
     console.log("✅ MongoDB Connected");
   } catch (error) {
     console.error("❌ MongoDB Connection Error:", error);
-    setTimeout(connectDB, 8080); 
+    setTimeout(connectDB, 5000); // Retry setiap 5 detik
   }
 };
 
@@ -88,7 +88,7 @@ app.use(session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: MONGO_URI,
-    ttl: 14 * 24 * 60 * 60, 
+    ttl: 14 * 24 * 60 * 60, // 14 hari
     autoRemove: 'interval',
     autoRemoveInterval: 10,
   }),
@@ -109,7 +109,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/unduhan', unduhanRoutes);
-
 
 // Global Error Handler
 const isProduction = process.env.NODE_ENV === 'production';
