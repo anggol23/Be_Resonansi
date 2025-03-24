@@ -34,11 +34,13 @@ REQUIRED_ENV_VARS.forEach((key) => {
 const PORT = process.env.PORT || 5000; // Railway akan menetapkan port otomatis
 const MONGO_URI = process.env.MONGO;
 const SESSION_SECRET = process.env.SESSION_SECRET;
-const CLIENT_URL = process.env.CLIENT_URL?.split(",") || [
-  "https://jurnalresonansi.com",
-  "https://api.jurnalresonansi.com",
-  "http://localhost:3000",
-];
+const CLIENT_URL = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map(url => url.trim())
+  : [
+      "https://jurnalresonansi.com",
+      "https://api.jurnalresonansi.com",
+      "http://localhost:5173"
+    ];
 
 // Konfigurasi __dirname untuk ES Module
 const __filename = fileURLToPath(import.meta.url);
@@ -50,14 +52,23 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// Konfigurasi CORS
+// 🔥 Perbaikan CORS
 app.use(cors({
-  origin: CLIENT_URL,
+  origin: function (origin, callback) {
+    if (!origin || CLIENT_URL.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS Not Allowed"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   exposedHeaders: ["Authorization"],
 }));
+
+// Tangani preflight request (OPTIONS)
+app.options('*', cors());
 
 // Fungsi koneksi ke MongoDB dengan retry otomatis
 const connectDB = async () => {
