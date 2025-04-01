@@ -84,8 +84,8 @@ export const publishFile = async (req, res, next) => {
         originalname: uploadedFile.originalname,
         size: uploadedFile.size,
         mimetype: uploadedFile.mimetype,
-        path: uploadedFile.path,
-        imagePath: req.body.imagePath || (uploadedImage ? uploadedImage.path : null),
+        path: path.relative(process.cwd(), uploadedFile.path), // Simpan path relatif
+        imagePath: uploadedImage ? path.relative(process.cwd(), uploadedImage.path) : null, // Simpan path relatif
         uploadedBy: req.user ? req.user.id : null,
       });
 
@@ -114,8 +114,14 @@ export const downloadFile = async (req, res) => {
     if (!file) {
       return res.status(404).json({ success: false, message: "File tidak ditemukan" });
     }
-    res.download(file.path, file.filename);
+    const filePath = path.resolve(process.cwd(), file.path); // Konversi path relatif ke path absolut
+    console.log("📂 File Path:", filePath); // Log path file.resolve untuk memastikan path file benar
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: "File tidak ditemukan di server" });
+    }
+    res.download(filePath, file.filename); // Periksa apakah file benar-benar ada
   } catch (error) {
+    console.error("⛔ Error Downloading File:", error.message);
     res.status(500).json({ success: false, message: "Gagal mengunduh file" });
   }
 };
@@ -130,48 +136,16 @@ export const deleteFile = async (req, res, next) => {
     }
 
     // Hapus file dari sistem
-    const fs = await import("fs/promises");
-    await fs.unlink(file.path).catch(() => null);
-    if (file.imagePath) await fs.unlink(file.imagePath).catch(() => null);
+    await fs.promises.unlink(file.path).catch(() => null);
+    if (file.imagePath) await fs.promises.unlink(file.imagePath).catch(() => null);
 
     // Hapus dari database
     await Unduhan.findByIdAndDelete(fileId);
 
     res.json({ message: "File berhasil dihapus" });
   } catch (error) {
+    console.error("⛔ Error Deleting File:", error.message);
     next(error);
-  }
-};
-
-const handleDownload = async (fileId, filename) => {
-  try {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      alert("Anda harus login terlebih dahulu!");
-      return;
-    }
-
-    const response = await fetch(`${API_URL}/api/unduhan/download/${fileId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("⛔ Error Response:", errorText);
-      throw new Error("Gagal mengunduh file");
-    }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename; 
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error("⛔ Download Error:", error);
-    alert("Terjadi kesalahan saat mengunduh file.");
   }
 };
 
