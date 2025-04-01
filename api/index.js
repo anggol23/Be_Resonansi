@@ -53,11 +53,16 @@ app.use(cookieParser());
 // Konfigurasi CORS
 app.use(cors({
   origin: CLIENT_URL,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true, // Pastikan kredensial diizinkan
   allowedHeaders: ["Content-Type", "Authorization"],
   exposedHeaders: ["Authorization"],
 }));
+
+// Middleware untuk log cookies
+app.use((req, res, next) => {
+  console.log("🔍 Cookies:", req.cookies);
+  next();
+});
 
 // Fungsi koneksi ke MongoDB dengan retry otomatis
 const connectDB = async () => {
