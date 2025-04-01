@@ -133,3 +133,18 @@ export const updateUserRole = async (req, res, next) => {
     next(error);
   }
 };
+
+// Fungsi untuk mendapatkan semua pengguna
+export const getAllUsers = async (req, res, next) => {
+  try {
+    // Pastikan hanya admin yang bisa mengakses daftar semua pengguna
+    if (!req.user || req.user.role !== 'admin') {
+      return next(errorHandler(403, "You are not authorized to access this resource"));
+    }
+    
+    const users = await User.find().select('-password'); // Ambil semua pengguna, kecuali password
+    res.status(200).json(users); // Kirimkan respons dengan daftar pengguna
+  } catch (error) {
+    next(error); // Proses error jika ada
+  }
+};
