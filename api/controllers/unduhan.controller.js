@@ -110,16 +110,22 @@ export const getFiles = async (req, res) => {
 // 🔹 Controller untuk mengunduh file berdasarkan ID (tanpa token)
 export const downloadFile = async (req, res) => {
   try {
-    const file = await Unduhan.findById(req.params.id); // Pastikan model `Unduhan` digunakan
+    const file = await Unduhan.findById(req.params.id); // Cari file berdasarkan ID
     if (!file) {
       return res.status(404).json({ success: false, message: "File tidak ditemukan" });
     }
+
     const filePath = path.resolve(process.cwd(), file.path); // Konversi path relatif ke path absolut
-    console.log("📂 File Path:", filePath); // Log path file.resolve untuk memastikan path file benar
+    console.log("📂 File Path:", filePath); // Debug log
+
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: "File tidak ditemukan di server" });
     }
-    res.download(filePath, file.filename); // Periksa apakah file benar-benar ada
+
+    res.setHeader("Content-Disposition", `attachment; filename="${file.originalname}"`); // Set nama file asli
+    res.setHeader("Content-Type", file.mimetype); // Set tipe MIME file
+    const fileStream = fs.createReadStream(filePath); // Buat stream untuk file
+    fileStream.pipe(res); // Kirim file ke client
   } catch (error) {
     console.error("⛔ Error Downloading File:", error.message);
     res.status(500).json({ success: false, message: "Gagal mengunduh file" });
