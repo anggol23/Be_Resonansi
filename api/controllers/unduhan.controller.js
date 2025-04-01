@@ -97,16 +97,26 @@ export const publishFile = async (req, res, next) => {
   });
 };
 
-
-
-
-// 🔹 Controller untuk mendapatkan daftar file
-export const getFiles = async (req, res, next) => {
+// 🔹 Controller untuk mendapatkan daftar file (tanpa token)
+export const getFiles = async (req, res) => {
   try {
-    const files = await Unduhan.find().sort({ createdAt: -1 }).lean();
-    res.status(200).json(files);
+    const files = await Unduhan.find(); // Pastikan model `Unduhan` digunakan
+    res.status(200).json({ success: true, files });
   } catch (error) {
-    next(errorHandler(500, "Gagal mengambil daftar file"));
+    res.status(500).json({ success: false, message: "Gagal mengambil data file" });
+  }
+};
+
+// 🔹 Controller untuk mengunduh file berdasarkan ID (tanpa token)
+export const downloadFile = async (req, res) => {
+  try {
+    const file = await Unduhan.findById(req.params.id); // Pastikan model `Unduhan` digunakan
+    if (!file) {
+      return res.status(404).json({ success: false, message: "File tidak ditemukan" });
+    }
+    res.download(file.path, file.filename);
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Gagal mengunduh file" });
   }
 };
 
@@ -133,29 +143,6 @@ export const deleteFile = async (req, res, next) => {
   }
 };
 
-// 🔹 Controller untuk mengunduh file
-export const downloadFile = async (req, res) => {
-  try {
-    const fileId = req.params.id;
-    const file = await Unduhan.findById(fileId); // ✅ FIX: Pakai model Unduhan
-
-    if (!file) {
-      return res.status(404).json({ message: "File tidak ditemukan" });
-    }
-
-    const filePath = path.join(process.cwd(), "uploads", file.filename); // ✅ FIX: Pakai path absolut
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: "File tidak ditemukan di server" });
-    }
-
-    res.download(filePath, file.originalname); // ✅ FIX: Pakai originalname
-  } catch (error) {
-    console.error("⛔ Error saat mengunduh file:", error);
-    res.status(500).json({ message: "Terjadi kesalahan saat mengunduh file" });
-  }
-};
-
-
 const handleDownload = async (fileId, filename) => {
   try {
     const token = localStorage.getItem("access_token");
@@ -178,7 +165,7 @@ const handleDownload = async (fileId, filename) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = filename; // ✅ FIX: Gunakan filename dari response
+    a.download = filename; 
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
