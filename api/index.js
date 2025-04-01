@@ -3,9 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import session from 'express-session';
 import passport from 'passport';
-import MongoStore from 'connect-mongo';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -86,27 +84,28 @@ mongoose.connection.on("disconnected", () => {
   connectDB();
 });
 
-// Konfigurasi session dengan MongoStore
-app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: MONGO_URI,
-    ttl: 14 * 24 * 60 * 60, 
-    autoRemove: 'interval',
-    autoRemoveInterval: 10,
-  }),
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24, // 1 hari
-  }
-}));
+// Hapus konfigurasi session jika tidak diperlukan
+// app.use(session({
+//   secret: SESSION_SECRET,
+//   resave: false,
+//   saveUninitialized: false,
+//   store: MongoStore.create({
+//     mongoUrl: MONGO_URI,
+//     ttl: 14 * 24 * 60 * 60, 
+//     autoRemove: 'interval',
+//     autoRemoveInterval: 10,
+//   }),
+//   cookie: {
+//     secure: process.env.NODE_ENV === 'production',
+//     httpOnly: true,
+//     maxAge: 1000 * 60 * 60 * 24, // 1 hari
+//   }
+// }));
 
 // Konfigurasi Passport.js
 app.use(passport.initialize());
-app.use(passport.session());
+// Hapus jika tidak menggunakan session
+// app.use(passport.session());
 
 // Register API routes
 app.use('/api/user', userRoutes);
