@@ -5,6 +5,8 @@ import { errorHandler } from "../utils/errorHandler.js";
 const extractToken = (req) => {
   const tokenFromHeader = req.headers.authorization?.split(" ")[1];
   const tokenFromCookie = req.cookies?.access_token;
+  console.log("🔍 Token from Header:", tokenFromHeader);
+  console.log("🔍 Token from Cookie:", tokenFromCookie);
   return tokenFromHeader || tokenFromCookie;
 };
 
