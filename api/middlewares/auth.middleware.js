@@ -16,6 +16,8 @@ export const verifyToken = (req, res, next) => {
 
   if (!token) {
     console.warn("⛔ No token found in headers or cookies!");
+    console.log("🔍 Request Headers:", req.headers);
+    console.log("🔍 Request Cookies:", req.cookies);
     return next(errorHandler(401, "Unauthorized! No token provided. Pastikan Anda sudah login."));
   }
 
