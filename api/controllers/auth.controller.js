@@ -3,6 +3,15 @@ import User from '../models/user.model.js';
 import { errorHandler } from '../utils/errorHandler.js';
 import jwt from 'jsonwebtoken';
 
+// Helper to generate JWT token
+const generateToken = (user) => {
+  return jwt.sign(
+    { id: user._id.toString(), role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+};
+
 // ✅ Signup - Pendaftaran pengguna baru
 export const signup = async (req, res, next) => {
   const { username, email, password, role } = req.body;
@@ -21,11 +30,7 @@ export const signup = async (req, res, next) => {
     const newUser = new User({ username, email, password, role: assignedRole });
     await newUser.save();
 
-    const token = jwt.sign(
-      { id: newUser._id.toString(), role: newUser.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = generateToken(newUser);
 
     const { password: pass, ...rest } = newUser._doc;
 
@@ -52,49 +57,45 @@ export const signup = async (req, res, next) => {
 
 // ✅ Signin - Login pengguna
 export const signin = async (req, res, next) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return next(errorHandler(400, "All fields are required"));
-  }
-
   try {
-    const validUser = await User.findOne({ email }).select("+password");
-    if (!validUser) {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) {
       return next(errorHandler(404, "User not found"));
     }
 
-    if (!validUser.isActive) {
-      return next(errorHandler(403, "Your account has been deactivated"));
-    }
-
-    const validPassword = await validUser.comparePassword(password);
-    if (!validPassword) {
-      return next(errorHandler(400, "Invalid password"));
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return next(errorHandler(401, "Invalid credentials"));
     }
 
     const token = jwt.sign(
-      { id: validUser._id.toString(), role: validUser.role },
+      { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "1d" }
     );
 
-    const { password: pass, ...rest } = validUser._doc;
+    // Simpan token di cookies
+    res.cookie("access_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 1 hari
+    });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log("✅ Login successful:", rest);
-    }
-
-    res
-      .status(200)
-      .cookie("access_token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-      })
-      .json({ user: rest, role: validUser.role, access_token: token });
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      access_token: token, // Opsional, jika ingin mengirim token ke frontend
+    });
   } catch (error) {
-    next(errorHandler(500, "Error signing in"));
+    next(error);
   }
 };
 
