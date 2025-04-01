@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import multer from "multer";
 import Unduhan from "../models/unduhan.model.js";
 import { errorHandler } from "../utils/errorHandler.js";
@@ -9,8 +10,18 @@ const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 const IMAGE_DIR = path.join(UPLOADS_DIR, "images");
 
 // 🔹 Pastikan folder sudah ada
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR, { recursive: true });
+const ensureDirExists = (dir) => {
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (error) {
+    console.error(`⛔ Error creating directory ${dir}:`, error);
+  }
+};
+
+ensureDirExists(UPLOADS_DIR);
+ensureDirExists(IMAGE_DIR);
 
 // 🔹 Konfigurasi penyimpanan file & gambar
 const storage = multer.diskStorage({
@@ -24,14 +35,13 @@ const storage = multer.diskStorage({
     }
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    const uniqueSuffix = crypto.randomBytes(8).toString("hex");
+    cb(null, `${Date.now()}-${uniqueSuffix}-${path.basename(file.originalname)}`);
   },
 });
 
-// 🔹 Filter jenis file yang diizinkan
+// 🔹 Filter jenis file yang diizinkan & batasi ukuran
 const fileFilter = (req, file, cb) => {
-  console.log("📂 Upload:", file.originalname, "📝 MIME:", file.mimetype);
-
   const fileTypes = [
     "application/pdf",
     "application/msword",
@@ -50,22 +60,21 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// 🔹 Middleware untuk multiple file upload
-const upload = multer({ storage, fileFilter }).fields([
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Batasi ukuran file maksimal 5MB
+}).fields([
   { name: "file", maxCount: 1 },
   { name: "image", maxCount: 1 },
 ]);
 
-// 🔹 Controller untuk mengunggah file & gambar
+// 🔹 Controller untuk mengunggah file
 export const publishFile = async (req, res, next) => {
   upload(req, res, async (err) => {
     if (err) {
-      console.error("⛔ Multer error:", err);
       return next(errorHandler(400, err.message || "Gagal mengunggah file"));
     }
-
-    console.log("📂 Files:", JSON.stringify(req.files, null, 2));
-    console.log("📝 Body:", req.body);
 
     try {
       const uploadedFile = req.files?.file ? req.files.file[0] : null;
@@ -84,8 +93,8 @@ export const publishFile = async (req, res, next) => {
         originalname: uploadedFile.originalname,
         size: uploadedFile.size,
         mimetype: uploadedFile.mimetype,
-        path: path.relative(process.cwd(), uploadedFile.path), // Simpan path relatif
-        imagePath: uploadedImage ? uploadedImage.path : null, // Simpan path absolut untuk gambar (jika diunggah ke Cloudinary)
+        path: path.relative(process.cwd(), uploadedFile.path),
+        imagePath: uploadedImage ? path.relative(process.cwd(), uploadedImage.path) : null,
         uploadedBy: req.user ? req.user.id : null,
       });
 
@@ -97,61 +106,57 @@ export const publishFile = async (req, res, next) => {
   });
 };
 
-// 🔹 Controller untuk mendapatkan daftar file (tanpa token)
-export const getFiles = async (req, res) => {
+// 🔹 Controller untuk mendapatkan daftar file
+export const getFiles = async (req, res, next) => {
   try {
-    const files = await Unduhan.find(); // Pastikan model `Unduhan` digunakan
+    const files = await Unduhan.find();
     res.status(200).json({ success: true, files });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Gagal mengambil data file" });
+    next(errorHandler(500, "Gagal mengambil data file"));
   }
 };
 
-// 🔹 Controller untuk mengunduh file berdasarkan ID (tanpa token)
-export const downloadFile = async (req, res) => {
+// 🔹 Controller untuk mengunduh file
+export const downloadFile = async (req, res, next) => {
   try {
-    const file = await Unduhan.findById(req.params.id); // Cari file berdasarkan ID
+    const file = await Unduhan.findById(req.params.id);
     if (!file) {
-      return res.status(404).json({ success: false, message: "File tidak ditemukan" });
+      return next(errorHandler(404, "File tidak ditemukan"));
     }
 
-    const filePath = path.resolve(process.cwd(), file.path); // Konversi path relatif ke path absolut
-    console.log("📂 File Path:", filePath); // Debug log
-
+    const filePath = path.join(UPLOADS_DIR, path.basename(file.path));
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, message: "File tidak ditemukan di server" });
+      return next(errorHandler(404, "File tidak ditemukan di server"));
     }
 
-    res.setHeader("Content-Disposition", `attachment; filename="${file.originalname}"`); // Set nama file asli
-    res.setHeader("Content-Type", file.mimetype); // Set tipe MIME file
-    const fileStream = fs.createReadStream(filePath); // Buat stream untuk file
-    fileStream.pipe(res); // Kirim file ke client
+    res.setHeader("Content-Disposition", `attachment; filename="${file.originalname}"`);
+    res.setHeader("Content-Type", file.mimetype);
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
   } catch (error) {
-    console.error("⛔ Error Downloading File:", error.message);
-    res.status(500).json({ success: false, message: "Gagal mengunduh file" });
+    next(errorHandler(500, "Gagal mengunduh file"));
   }
 };
 
 // 🔹 Controller untuk menghapus file
 export const deleteFile = async (req, res, next) => {
   try {
-    const fileId = req.params.id;
-    const file = await Unduhan.findById(fileId);
+    const file = await Unduhan.findById(req.params.id);
     if (!file) {
-      return res.status(404).json({ message: "File tidak ditemukan" });
+      return next(errorHandler(404, "File tidak ditemukan"));
     }
 
-    // Hapus file dari sistem
-    await fs.promises.unlink(file.path).catch(() => null);
-    if (file.imagePath) await fs.promises.unlink(file.imagePath).catch(() => null);
+    const filePath = path.join(UPLOADS_DIR, path.basename(file.path));
+    await fs.promises.unlink(filePath).catch(() => null);
 
-    // Hapus dari database
-    await Unduhan.findByIdAndDelete(fileId);
+    if (file.imagePath) {
+      const imagePath = path.join(IMAGE_DIR, path.basename(file.imagePath));
+      await fs.promises.unlink(imagePath).catch(() => null);
+    }
 
+    await Unduhan.findByIdAndDelete(req.params.id);
     res.json({ message: "File berhasil dihapus" });
   } catch (error) {
-    console.error("⛔ Error Deleting File:", error.message);
-    next(error);
+    next(errorHandler(500, "Gagal menghapus file"));
   }
 };
-

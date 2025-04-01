@@ -1,42 +1,43 @@
 import jwt from "jsonwebtoken";
 import { errorHandler } from "../utils/errorHandler.js";
 
-// Extract token from headers or cookies
+// ✅ Fungsi untuk mengekstrak token dari header atau cookie
 const extractToken = (req) => {
-  const tokenFromHeader = req.headers.authorization?.split(" ")[1];
-  const tokenFromCookie = req.cookies?.access_token;
-  console.log("🔍 Token from Header:", tokenFromHeader);
-  console.log("🔍 Token from Cookie:", tokenFromCookie);
-  return tokenFromHeader || tokenFromCookie;
+  let token = null;
+
+  if (req.headers.authorization?.startsWith("Bearer ")) {
+    token = req.headers.authorization.split(" ")[1];
+  } else if (req.cookies?.access_token) {
+    token = req.cookies.access_token;
+  }
+
+  return token;
 };
 
-// Verify token middleware
+// ✅ Middleware untuk memverifikasi token
 export const verifyToken = (req, res, next) => {
   const token = extractToken(req);
 
   if (!token) {
-    console.warn("⛔ No token found in headers or cookies!");
-    console.log("🔍 Request Headers:", req.headers);
-    console.log("🔍 Request Cookies:", req.cookies);
     return next(errorHandler(401, "Unauthorized! No token provided. Pastikan Anda sudah login."));
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) {
-      console.error("🔴 Token verification failed:", err.message);
-      return next(errorHandler(403, "Forbidden! Invalid or expired token."));
+      if (err.name === "TokenExpiredError") {
+        return next(errorHandler(403, "Forbidden! Token has expired. Silakan login kembali."));
+      }
+      return next(errorHandler(403, "Forbidden! Invalid token."));
     }
 
-    console.log("🔐 Decoded Token:", decoded);
-    req.user = decoded;
+    req.user = decoded; // Simpan data user dari token
     next();
   });
 };
 
-// Verify admin middleware
+// ✅ Middleware untuk memverifikasi admin
 export const verifyAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
-    console.warn("⛔ Unauthorized admin access attempt.");
     return next(errorHandler(403, "Access denied! Admins only."));
   }
   next();

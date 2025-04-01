@@ -4,7 +4,9 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
-import fs from 'fs';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import winston from 'winston';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -32,11 +34,13 @@ REQUIRED_ENV_VARS.forEach((key) => {
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO;
 const SESSION_SECRET = process.env.SESSION_SECRET;
-const CLIENT_URL = process.env.CLIENT_URL?.split(",") || [
-  "https://jurnalresonansi.com",
-  "https://api.jurnalresonansi.com",
-  "http://localhost:3000",
-];
+const CLIENT_URL = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',')
+  : [
+      'https://jurnalresonansi.com',
+      'https://api.jurnalresonansi.com',
+      'http://localhost:3000',
+    ];
 
 // Konfigurasi __dirname untuk ES Module
 const __filename = fileURLToPath(import.meta.url);
@@ -44,68 +48,68 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Setup Winston logger
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.Console({ format: winston.format.simple() }),
+  ],
+});
+
 // Middleware utama
 app.use(express.json());
 app.use(cookieParser());
+app.use(helmet());
+
+// Rate limiting untuk mencegah serangan DDoS
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 menit
+  max: 100, // Maksimal 100 request per IP
+  message: 'Terlalu banyak permintaan, coba lagi nanti.',
+});
+app.use(limiter);
 
 // Konfigurasi CORS
-app.use(cors({
-  origin: CLIENT_URL,
-  credentials: true, // Pastikan kredensial diizinkan
-  allowedHeaders: ["Content-Type", "Authorization"],
-  exposedHeaders: ["Authorization"],
-}));
+app.use(
+  cors({
+    origin: CLIENT_URL,
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Authorization'],
+  })
+);
 
 // Middleware untuk log cookies
 app.use((req, res, next) => {
-  console.log("🔍 Cookies:", req.cookies);
+  logger.info(`🔍 Cookies: ${JSON.stringify(req.cookies)}`);
   next();
 });
 
-// Fungsi koneksi ke MongoDB dengan retry otomatis
+// Fungsi koneksi ke MongoDB dengan validasi
 const connectDB = async () => {
   try {
     await mongoose.connect(MONGO_URI);
-    console.log("✅ MongoDB Connected");
+    console.log('✅ MongoDB Connected');
   } catch (error) {
-    console.error("❌ MongoDB Connection Error:", error);
-    setTimeout(connectDB, 5000); 
+    logger.error(`❌ MongoDB Connection Error: ${error}`);
+    process.exit(1); // Hentikan server jika tidak bisa connect
   }
 };
 
 // Event listener MongoDB
-mongoose.connection.on("connected", () => console.log("✅ MongoDB is connected"));
-mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB Error:", err);
-  fs.appendFileSync("error.log", `[${new Date().toISOString()}] MongoDB Error: ${err}\n`);
+mongoose.connection.on('error', (err) => {
+  logger.error(`❌ MongoDB Error: ${err}`);
 });
-mongoose.connection.on("disconnected", () => {
-  console.warn("⚠️ MongoDB disconnected, mencoba reconnect...");
+
+mongoose.connection.on('disconnected', () => {
+  logger.warn('⚠️ MongoDB disconnected, mencoba reconnect...');
   connectDB();
 });
 
-// Hapus konfigurasi session jika tidak diperlukan
-// app.use(session({
-//   secret: SESSION_SECRET,
-//   resave: false,
-//   saveUninitialized: false,
-//   store: MongoStore.create({
-//     mongoUrl: MONGO_URI,
-//     ttl: 14 * 24 * 60 * 60, 
-//     autoRemove: 'interval',
-//     autoRemoveInterval: 10,
-//   }),
-//   cookie: {
-//     secure: process.env.NODE_ENV === 'production',
-//     httpOnly: true,
-//     maxAge: 1000 * 60 * 60 * 24, // 1 hari
-//   }
-// }));
-
 // Konfigurasi Passport.js
 app.use(passport.initialize());
-// Hapus jika tidak menggunakan session
-// app.use(passport.session());
 
 // Register API routes
 app.use('/api/user', userRoutes);
@@ -114,18 +118,14 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/unduhan', unduhanRoutes);
 
-
 // Global Error Handler
 const isProduction = process.env.NODE_ENV === 'production';
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
+  const message = err.message || 'Internal Server Error';
 
-  console.error(`🔥 Error: ${message}`);
-
-  // Simpan error ke log file
-  fs.appendFileSync("error.log", `[${new Date().toISOString()}] ${message}\n`);
+  logger.error(`🔥 Error: ${message}`);
 
   res.status(statusCode).json({
     success: false,
@@ -136,8 +136,11 @@ app.use((err, req, res, next) => {
 });
 
 // Mulai server setelah koneksi MongoDB berhasil
-connectDB().then(() => {
+const startServer = async () => {
+  await connectDB();
   app.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
   });
-});
+};
+
+startServer();
