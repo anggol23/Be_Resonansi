@@ -4,9 +4,9 @@ import { verifyToken, verifyAdmin } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/", verifyToken, getFiles); 
+router.get("/", getFiles); 
 router.post("/upload", verifyToken, publishFile); 
 router.delete("/:id", verifyToken, verifyAdmin, deleteFile); 
-router.get("/download/:id", verifyToken, downloadFile); 
+router.get("/download/:id", downloadFile); 
 
 export default router;
