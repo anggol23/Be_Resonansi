@@ -85,7 +85,7 @@ export const publishFile = async (req, res, next) => {
         size: uploadedFile.size,
         mimetype: uploadedFile.mimetype,
         path: path.relative(process.cwd(), uploadedFile.path), // Simpan path relatif
-        imagePath: uploadedImage ? path.relative(process.cwd(), uploadedImage.path) : null, // Simpan path relatif
+        imagePath: uploadedImage ? uploadedImage.path : null, // Simpan path absolut untuk gambar (jika diunggah ke Cloudinary)
         uploadedBy: req.user ? req.user.id : null,
       });
 
