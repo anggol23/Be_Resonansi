@@ -15,7 +15,7 @@ const generateToken = (user) => {
 
 // ✅ Signup - Pendaftaran pengguna baru
 export const signup = async (req, res, next) => {
-  const { username, email, password, role, profileImage } = req.body; // Ensure profileImage is part of the body
+  const { username, email, password, role, profileImage } = req.body;
 
   // Validasi input
   if (!username || !email || !password) {
@@ -75,7 +75,7 @@ export const signup = async (req, res, next) => {
         access_token: token,
       });
   } catch (error) {
-    console.error('Error during signup:', error); // Log error untuk debugging
+    console.error('Error during signup:', error);
     next(errorHandler(500, 'Error signing up'));
   }
 };
@@ -100,15 +100,13 @@ export const signin = async (req, res, next) => {
 
     const token = generateToken(user);
 
-    // Set cookie dengan token JWT
     res.cookie('access_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000, // 1 hari
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
-    // Kirim data user dan token JWT
     res.status(200).json({
       success: true,
       user: {
@@ -118,10 +116,10 @@ export const signin = async (req, res, next) => {
         role: user.role,
         profilePicture: user.profilePicture, // Send profile picture URL
       },
-      access_token: token, // Opsional, jika ingin mengirim token ke frontend
+      access_token: token, // Optional: if you want to send token to frontend
     });
   } catch (error) {
-    console.error('Error during signin:', error); // Log error untuk debugging
+    console.error('Error during signin:', error);
     next(errorHandler(500, 'Error signing in'));
   }
 };
@@ -159,7 +157,7 @@ export const google = async (req, res, next) => {
       })
       .json({ user, access_token: token });
   } catch (error) {
-    console.error('Error during Google login:', error); // Log error untuk debugging
+    console.error('Error during Google login:', error);
     next(errorHandler(500, 'Error logging in with Google'));
   }
 };
@@ -172,7 +170,7 @@ export const getMe = (req, res, next) => {
     }
     res.status(200).json(req.user);
   } catch (error) {
-    console.error('Error fetching user data:', error); // Log error untuk debugging
+    console.error('Error fetching user data:', error);
     next(errorHandler(500, 'Error fetching user data'));
   }
 };
