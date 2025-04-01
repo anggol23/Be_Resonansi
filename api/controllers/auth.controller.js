@@ -4,7 +4,7 @@ import { errorHandler } from '../utils/errorHandler.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 
-// Helper to generate JWT token
+// Helper untuk generate token JWT
 const generateToken = (user) => {
   return jwt.sign(
     { id: user._id.toString(), role: user.role },
@@ -17,31 +17,49 @@ const generateToken = (user) => {
 export const signup = async (req, res, next) => {
   const { username, email, password, role } = req.body;
 
+  // Validasi input
   if (!username || !email || !password) {
     return next(errorHandler(400, 'All fields are required'));
   }
 
   try {
+    // Validasi format email menggunakan regex
+    const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
+    if (!emailRegex.test(email)) {
+      return next(errorHandler(400, 'Invalid email format'));
+    }
+
+    // Validasi username hanya mengandung huruf kecil dan angka
+    if (!/^[a-z0-9]+$/.test(username)) {
+      return next(errorHandler(400, 'Username must contain only lowercase letters and numbers'));
+    }
+
     // Cek apakah email sudah terdaftar
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return next(errorHandler(400, 'Email already in use'));
     }
 
+    // Tentukan role, hanya admin yang bisa memberi role admin
     const assignedRole = role === 'admin' ? 'admin' : 'user';
-    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12); // Salt round 12 untuk keamanan yang lebih baik
     
+    // Simpan data user baru
     const newUser = new User({ username, email, password: hashedPassword, role: assignedRole });
     await newUser.save();
 
+    // Generate token
     const token = generateToken(newUser);
     const { password: pass, ...rest } = newUser._doc;
 
+    // Kirim respons dengan cookie yang berisi token
     res
       .status(201)
       .cookie('access_token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production', // Secure hanya diaktifkan di produksi
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
       })
       .json({
@@ -50,6 +68,7 @@ export const signup = async (req, res, next) => {
         access_token: token,
       });
   } catch (error) {
+    console.error('Error during signup:', error); // Log error untuk debugging
     next(errorHandler(500, 'Error signing up'));
   }
 };
@@ -74,6 +93,7 @@ export const signin = async (req, res, next) => {
 
     const token = generateToken(user);
 
+    // Set cookie dengan token JWT
     res.cookie('access_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -81,6 +101,7 @@ export const signin = async (req, res, next) => {
       maxAge: 24 * 60 * 60 * 1000, // 1 hari
     });
 
+    // Kirim data user dan token JWT
     res.status(200).json({
       success: true,
       user: {
@@ -92,6 +113,7 @@ export const signin = async (req, res, next) => {
       access_token: token, // Opsional, jika ingin mengirim token ke frontend
     });
   } catch (error) {
+    console.error('Error during signin:', error); // Log error untuk debugging
     next(errorHandler(500, 'Error signing in'));
   }
 };
@@ -129,6 +151,7 @@ export const google = async (req, res, next) => {
       })
       .json({ user, access_token: token });
   } catch (error) {
+    console.error('Error during Google login:', error); // Log error untuk debugging
     next(errorHandler(500, 'Error logging in with Google'));
   }
 };
@@ -141,6 +164,7 @@ export const getMe = (req, res, next) => {
     }
     res.status(200).json(req.user);
   } catch (error) {
+    console.error('Error fetching user data:', error); // Log error untuk debugging
     next(errorHandler(500, 'Error fetching user data'));
   }
 };
