@@ -60,6 +60,6 @@ router.put('/editComment/:commentId', verifyToken, validateCommentId, handleVali
 router.delete('/deleteComment/:commentId', verifyToken, validateCommentId, handleValidationErrors, deleteComment);
 
 // Mendapatkan semua komentar (hanya untuk admin)
-router.get('/comments', verifyToken, isAdmin, getAllComments); // Ganti getcomments menjadi getAllComments
+router.get('/comments', verifyToken, isAdmin, getAllComments); 
 
 export default router;
