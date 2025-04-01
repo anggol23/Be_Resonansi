@@ -15,7 +15,7 @@ const generateToken = (user) => {
 
 // ✅ Signup - Pendaftaran pengguna baru
 export const signup = async (req, res, next) => {
-  const { username, email, password, role } = req.body;
+  const { username, email, password, role, profileImage } = req.body; // Ensure profileImage is part of the body
 
   // Validasi input
   if (!username || !email || !password) {
@@ -47,7 +47,14 @@ export const signup = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 12); // Salt round 12 untuk keamanan yang lebih baik
     
     // Simpan data user baru
-    const newUser = new User({ username, email, password: hashedPassword, role: assignedRole });
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role: assignedRole,
+      profilePicture: profileImage || `https://www.gravatar.com/avatar/${email}?d=identicon`, // Set default profile picture if not provided
+    });
+
     await newUser.save();
 
     // Generate token
@@ -109,6 +116,7 @@ export const signin = async (req, res, next) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture, // Send profile picture URL
       },
       access_token: token, // Opsional, jika ingin mengirim token ke frontend
     });
