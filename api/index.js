@@ -22,7 +22,7 @@ import unduhanRoutes from './routes/unduhan.route.js';
 import './middlewares/passport.js';
 
 // Validasi variabel environment yang wajib
-const REQUIRED_ENV_VARS = ['MONGO', 'JWT_SECRET', 'SESSION_SECRET', 'PORT'];
+const REQUIRED_ENV_VARS = ['MONGO', 'JWT_SECRET', 'PORT'];
 REQUIRED_ENV_VARS.forEach((key) => {
   if (!process.env[key]) {
     console.error(`❌ ERROR: Variabel ${key} belum dikonfigurasi di .env`);
@@ -33,7 +33,6 @@ REQUIRED_ENV_VARS.forEach((key) => {
 // Konfigurasi
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO;
-const SESSION_SECRET = process.env.SESSION_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(',')
   : [
@@ -71,21 +70,26 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+
+app.set('trust proxy', true);
+
 // Konfigurasi CORS
 app.use(
   cors({
     origin: CLIENT_URL,
-    credentials: true,
+    credentials: true, 
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Authorization'],
   })
 );
 
 // Middleware untuk log cookies
-app.use((req, res, next) => {
-  logger.info(`🔍 Cookies: ${JSON.stringify(req.cookies)}`);
-  next();
-});
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    logger.info(`🔍 Cookies: ${JSON.stringify(req.cookies)}`);
+    next();
+  });
+}
 
 // Fungsi koneksi ke MongoDB dengan validasi
 const connectDB = async () => {
@@ -131,7 +135,7 @@ app.use((err, req, res, next) => {
     success: false,
     statusCode,
     message,
-    ...(isProduction ? {} : { stack: err.stack }),
+    ...(isProduction ? {} : { stack: err.stack }), // Berikan stack trace hanya di development
   });
 });
 
