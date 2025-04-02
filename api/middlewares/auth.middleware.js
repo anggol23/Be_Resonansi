@@ -50,3 +50,12 @@ export const verifyAdmin = (req, res, next) => {
   }
   next();
 };
+
+export const setTokenCookie = (res, token) => {
+  res.cookie('access_token', token, {
+    httpOnly: true, // Token hanya bisa diakses di server, tidak di JavaScript
+    secure: process.env.NODE_ENV === 'production', // Hanya kirim cookie via HTTPS di produksi
+    sameSite: 'Strict', // Membatasi cookie agar hanya digunakan di situs yang sama
+    maxAge: 7 * 24 * 60 * 60 * 1000, // Token kedaluwarsa dalam 7 hari
+  });
+};
