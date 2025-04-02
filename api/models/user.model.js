@@ -1,93 +1,67 @@
-import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
-import validator from "validator";
+import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
 
 const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
-      required: [true, "Username is required"],
+      required: [true, 'Username wajib diisi'],
       unique: true,
-      trim: true,
-      minlength: [3, "Username must be at least 3 characters long"],
-      maxlength: [20, "Username cannot exceed 20 characters"],
+      minlength: [3, 'Username minimal 3 karakter'],
+      maxlength: [20, 'Username maksimal 20 karakter'],
+      match: [/^[a-z0-9]+$/, 'Username hanya boleh berisi huruf kecil dan angka'],
     },
     email: {
       type: String,
-      required: [true, "Email is required"],
+      required: [true, 'Email wajib diisi'],
       unique: true,
-      lowercase: true,
-      trim: true,
-      validate: {
-        validator: validator.isEmail,
-        message: "Please enter a valid email",
-      },
+      match: [/^\S+@\S+\.\S+$/, 'Format email tidak valid'],
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
-      minlength: [6, "Password must be at least 6 characters long"],
-      select: false, 
+      required: [true, 'Password wajib diisi'],
+      minlength: [6, 'Password minimal 6 karakter'],
+      select: false, // Jangan sertakan password dalam query secara default
     },
     profilePicture: {
       type: String,
-      default: function () {
-        return `https://www.gravatar.com/avatar/${this.email}?d=identicon`;
-      },
+      default: 'https://www.gravatar.com/avatar/?d=mp',
     },
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: ['user', 'admin'],
+      default: 'user',
     },
     googleId: {
       type: String,
-      unique: true,
-      sparse: true,
+      default: null,
     },
     authProvider: {
       type: String,
-      enum: ["local", "google"],
-      default: "local",
-    },
-    isActive: {
-      type: Boolean,
-      default: true, 
+      enum: ['local', 'google'],
+      default: 'local',
     },
   },
   { timestamps: true }
 );
 
-// 🔹 Virtual Field: Full Name (Bisa dikembangkan jika pakai firstName & lastName)
-userSchema.virtual("fullName").get(function () {
-  return this.username;
+// Middleware untuk hashing password sebelum menyimpan
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next(); // Jika password tidak diubah, lanjutkan
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
-// 🔹 Bersihkan username & email sebelum disimpan
-userSchema.pre("save", function (next) {
-  this.username = this.username.trim();
-  this.email = this.email.trim();
-  next();
-});
-
-// 🔹 Hash password hanya jika user baru dibuat atau password diubah
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
-});
-
-// 🔹 Metode untuk membandingkan password saat login
-userSchema.methods.comparePassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+// Method untuk membandingkan password
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
-// 🔹 Hapus password dari response JSON
-userSchema.methods.toJSON = function () {
-  const obj = this.toObject();
-  delete obj.password;
-  return obj;
-};
+const User = mongoose.model('User', userSchema);
 
-const User = mongoose.model("User", userSchema);
 export default User;

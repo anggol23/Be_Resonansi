@@ -5,15 +5,15 @@ import { errorHandler } from '../utils/errorHandler.js';
 const allowedCategories = ['pendidikan', 'sosial', 'ekonomi', 'politik'];
 
 // 📝 CREATE POST
-export const create = async (req, res, next) => {
+export const createPost = async (req, res, next) => {
   try {
     if (req.user.role !== "admin") {
       return next(errorHandler(403, 'You are not allowed to create a post'));
     }
 
-    const { title, content, category, image } = req.body;
+    const { title, content, category, image, author } = req.body;
 
-    if (!title || !content || !category || !image) {
+    if (!title || !content || !category || !image || !author) {
       return next(errorHandler(400, 'Please provide all required fields, including image'));
     }
 
@@ -31,6 +31,7 @@ export const create = async (req, res, next) => {
       image,
       slug,
       userId: req.user.id,
+      author,
     });
 
     const savedPost = await newPost.save();
@@ -45,7 +46,7 @@ export const create = async (req, res, next) => {
 export const getPostBySlug = async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const post = await Post.findOne({ slug }).lean(); 
+    const post = await Post.findOne({ slug }).populate("author", "username profilePicture").lean(); 
 
     if (!post) {
       return next(errorHandler(404, "Post not found"));
@@ -73,20 +74,20 @@ export const getPostBySlug = async (req, res, next) => {
 };
 
 
-export const getPostById = async (req, res) => {
+export const getPostById = async (req, res, next) => {
   try {
-    const post = await Post.findById(req.params.postId);
+    const post = await Post.findById(req.params.postId).populate("author", "username profilePicture");
     if (!post) {
-      return res.status(404).json({ message: "Post not found" });
+      return next(errorHandler(404, "Post not found"));
     }
-    res.json({ post });
+    res.status(200).json(post);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(errorHandler(500, "Gagal mendapatkan postingan."));
   }
 };
 
 // 📌 GET ALL POSTS (with filters)
-export const getposts = async (req, res, next) => {
+export const getPosts = async (req, res, next) => {
   try {
     const startIndex = parseInt(req.query.startIndex) || 0;
     const limit = parseInt(req.query.limit) || 9;
@@ -110,6 +111,7 @@ export const getposts = async (req, res, next) => {
       .skip(startIndex)
       .limit(limit)
       .select('-__v') // 🔹 Jangan kembalikan field __v (versi mongoose)
+      .populate("author", "username profilePicture")
       .lean();
 
     const totalPosts = await Post.countDocuments(filter);
@@ -126,7 +128,7 @@ export const getposts = async (req, res, next) => {
 };
 
 // 🚀 DELETE POST
-export const deletepost = async (req, res, next) => {
+export const deletePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
     const post = await Post.findById(postId);
@@ -148,7 +150,7 @@ export const deletepost = async (req, res, next) => {
 };
 
 // ✏️ UPDATE POST
-export const updatepost = async (req, res, next) => {
+export const updatePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
     const { title, content, category, image } = req.body;

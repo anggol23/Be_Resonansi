@@ -1,15 +1,32 @@
 import express from 'express';
-import { verifyToken, verifyAdmin } from "../middlewares/auth.middleware.js";
-import { create, deletepost, getposts, updatepost , getPostBySlug , getPostById } from '../controllers/post.controller.js';
+import {
+  createPost,
+  getPosts,
+  getPostById,
+  getPostBySlug,
+  updatePost,
+  deletePost,
+} from '../controllers/post.controller.js';
+import { verifyToken, verifyAdmin } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-router.post('/create', verifyToken, verifyAdmin, create); 
-router.get('/getposts', getposts);
+// Rute untuk membuat postingan (hanya untuk admin)
+router.post('/create', verifyToken, verifyAdmin, createPost);
+
+// Rute untuk mendapatkan semua postingan
+router.get('/getposts', getPosts);
+
+// Rute untuk mendapatkan postingan berdasarkan ID
 router.get('/getpost/:postId', getPostById);
-router.delete("/deleteposts/:postId", verifyToken, deletepost);
-router.put('/update/:postId', verifyToken, verifyAdmin, updatepost);
+
+// Rute untuk mendapatkan postingan berdasarkan slug
 router.get('/post/:slug', getPostBySlug);
 
+// Rute untuk memperbarui postingan (hanya untuk admin atau pemilik postingan)
+router.put('/update/:postId', verifyToken, updatePost);
+
+// Rute untuk menghapus postingan (hanya untuk admin atau pemilik postingan)
+router.delete('/delete/:postId', verifyToken, deletePost);
 
 export default router;

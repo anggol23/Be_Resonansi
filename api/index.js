@@ -128,12 +128,25 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Fallback untuk route yang tidak ditemukan
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Endpoint tidak ditemukan',
+  });
+});
+
 // Mulai server setelah koneksi MongoDB berhasil
 const startServer = async () => {
+try {
   await connectDB();
   app.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
   });
+} catch (error) {
+    logger.error(`❌ Gagal memulai server: ${error.message}`);
+    process.exit(1);
+  }
 };
 
 startServer();

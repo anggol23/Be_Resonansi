@@ -41,31 +41,25 @@ export const signup = async (req, res, next) => {
 // Update User
 export const updateUser = async (req, res, next) => {
   try {
-    if (req.user.id !== req.params.userId && req.user.role !== 'admin') {
-      return next(errorHandler(403, "You are not allowed to update this user"));
+    const { username, email, profilePicture, password } = req.body;
+
+    const updatedData = { username, email, profilePicture };
+    if (password) {
+      updatedData.password = await bcrypt.hash(password, 10);
     }
 
-    const updates = {};
-    if (req.body.password && req.body.password.length >= 6) {
-      updates.password = await bcrypt.hash(req.body.password, 10);
-    }
-    if (req.body.username && /^[a-z0-9]+$/.test(req.body.username)) {
-      updates.username = req.body.username;
-    }
-    if (req.body.email) {
-      const existingUser = await User.findOne({ email: req.body.email });
-      if (existingUser && existingUser._id.toString() !== req.params.userId) {
-        return next(errorHandler(400, "Email is already in use"));
-      }
-      updates.email = req.body.email;
-    }
+    const updatedUser = await User.findByIdAndUpdate(req.params.id, updatedData, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
 
-    const updatedUser = await User.findByIdAndUpdate(req.params.userId, { $set: updates }, { new: true, select: "-password" });
-    if (!updatedUser) return next(errorHandler(404, "User not found"));
+    if (!updatedUser) {
+      return next(errorHandler(404, 'Pengguna tidak ditemukan.'));
+    }
 
     res.status(200).json(updatedUser);
   } catch (error) {
-    next(error);
+    next(errorHandler(500, 'Gagal memperbarui data pengguna.'));
   }
 };
 
@@ -81,13 +75,10 @@ export const signout = async (req, res, next) => {
 // Get Users
 export const getUsers = async (req, res, next) => {
   try {
-    if (!req.user || req.user.role !== 'admin') {
-      return next(errorHandler(403, "You are not allowed to see all users"));
-    }
-    const users = await User.find().select("-password");
-    res.status(200).json(users);
+    const users = await User.find().select('-password'); // Exclude password
+    res.status(200).json({ users });
   } catch (error) {
-    next(error);
+    next(errorHandler(500, 'Gagal mengambil data pengguna.'));
   }
 };
 
@@ -102,35 +93,56 @@ export const getUser = async (req, res, next) => {
   }
 };
 
+// Get a single user by ID
+export const getUserById = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) {
+      return next(errorHandler(404, 'Pengguna tidak ditemukan.'));
+    }
+    res.status(200).json(user);
+  } catch (error) {
+    next(errorHandler(500, 'Gagal mengambil data pengguna.'));
+  }
+};
+
 // Delete User
 export const deleteUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return next(errorHandler(404, "User not found"));
-    await User.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: "User deleted successfully" });
+    const deletedUser = await User.findByIdAndDelete(req.params.id);
+    if (!deletedUser) {
+      return next(errorHandler(404, 'Pengguna tidak ditemukan.'));
+    }
+    res.status(200).json({ message: 'Pengguna berhasil dihapus.' });
   } catch (error) {
-    next(error);
+    next(errorHandler(500, 'Gagal menghapus pengguna.'));
   }
 };
 
 // Update User Role
 export const updateUserRole = async (req, res, next) => {
   try {
+    // Pastikan hanya admin yang dapat mengubah role pengguna
     if (req.user.role !== 'admin') {
-      return next(errorHandler(403, "Only admins can update user roles"));
+      return next(errorHandler(403, "Hanya admin yang dapat mengubah role pengguna."));
     }
+
     const { role } = req.body;
     if (!role || !["user", "admin"].includes(role)) {
-      return next(errorHandler(400, "Invalid role"));
+      return next(errorHandler(400, "Role tidak valid. Role harus 'user' atau 'admin'."));
     }
+
     const user = await User.findById(req.params.userId);
-    if (!user) return next(errorHandler(404, "User not found"));
+    if (!user) {
+      return next(errorHandler(404, "Pengguna tidak ditemukan."));
+    }
+
     user.role = role;
     await user.save();
-    res.status(200).json({ message: "User role updated successfully", user });
+
+    res.status(200).json({ message: "Role pengguna berhasil diperbarui.", user });
   } catch (error) {
-    next(error);
+    next(errorHandler(500, "Gagal memperbarui role pengguna."));
   }
 };
 

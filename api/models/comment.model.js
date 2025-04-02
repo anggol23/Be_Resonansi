@@ -4,11 +4,11 @@ const commentSchema = new mongoose.Schema(
   {
     content: {
       type: String,
-      required: true,
-      minlength: [1, 'Konten komentar tidak boleh kosong'],
+      required: [true, 'Konten komentar tidak boleh kosong'],
+      minlength: [1, 'Konten komentar minimal 1 karakter'],
     },
     postId: {
-      type: mongoose.Schema.Types.ObjectId, 
+      type: mongoose.Schema.Types.ObjectId,
       ref: 'Post',
       required: true,
     },
@@ -30,7 +30,7 @@ const commentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index untuk postId dan userId untuk optimisasi pencarian
+// Index untuk optimisasi pencarian
 commentSchema.index({ postId: 1 });
 commentSchema.index({ userId: 1 });
 
@@ -52,7 +52,7 @@ commentSchema.pre('save', function (next) {
 
 // Menghindari duplikat ID dalam likes array
 commentSchema.pre('save', function (next) {
-  this.likes = [...new Set(this.likes)]; 
+  this.likes = [...new Set(this.likes)];
   next();
 });
 

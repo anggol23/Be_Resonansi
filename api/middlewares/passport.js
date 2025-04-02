@@ -1,39 +1,52 @@
-import passport from "passport";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import dotenv from "dotenv";
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import User from '../models/user.model.js';
 
-dotenv.config();
-
-passport.use(new GoogleStrategy(
+// Konfigurasi Google OAuth
+passport.use(
+  new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "https://jurnalresonansi.com/api/auth/google/callback",
+      callbackURL: `${process.env.API_BASE_URL}/api/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log("Google Profile:", profile);
+        // Cari pengguna berdasarkan Google ID
+        let user = await User.findOne({ googleId: profile.id });
 
-        if (!profile) {
-          return done(new Error("Google Profile is undefined"), null);
+        // Jika pengguna tidak ditemukan, buat pengguna baru
+        if (!user) {
+          user = new User({
+            username: profile.displayName,
+            email: profile.emails[0].value,
+            googleId: profile.id,
+            profilePicture: profile.photos[0].value,
+            authProvider: 'google',
+            role: 'user',
+          });
+          await user.save();
         }
-
-        // Simpan user ke session
-        const user = { googleId: profile.id, name: profile.displayName, email: profile.emails[0].value };
 
         return done(null, user);
       } catch (error) {
         return done(error, null);
       }
     }
-));
+  )
+);
 
+// Serialisasi pengguna ke sesi
 passport.serializeUser((user, done) => {
-    done(null, user.googleId);
+  done(null, user.id);
 });
 
-passport.deserializeUser((id, done) => {
-    // Simulasi ambil user dari database
-    const user = { googleId: id, name: "User Example" }; 
+// Deserialisasi pengguna dari sesi
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
     done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
 });

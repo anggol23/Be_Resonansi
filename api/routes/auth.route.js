@@ -1,15 +1,24 @@
-import express from "express";
-import { signup, signin, google, getMe } from "../controllers/auth.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+import express from 'express';
+import { signup, signin, signout, getMe, google } from '../controllers/auth.controller.js';
+import { verifyToken } from '../middlewares/auth.middleware.js';
 import passport from "passport";
 
 const router = express.Router();
 
-// Route untuk Signup dan Signin
-router.post("/signup", signup);
-router.post("/signin", signin);
-router.post("/google", google);
-router.get("/me", verifyToken, getMe);
+// Rute untuk registrasi pengguna
+router.post('/signup', signup);
+
+// Rute untuk login pengguna
+router.post('/signin', signin);
+
+// Rute untuk logout pengguna
+router.post('/signout', signout);
+
+// Rute untuk mendapatkan data pengguna saat ini
+router.get('/me', verifyToken, getMe);
+
+// Rute untuk login menggunakan Google
+router.post('/google', google);
 
 // Google OAuth dengan Passport.js
 router.get("/google", 

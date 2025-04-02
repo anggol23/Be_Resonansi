@@ -16,63 +16,31 @@ const generateToken = (user) => {
 
 // ✅ Signup - Register a new user
 export const signup = async (req, res, next) => {
-  const { username, email, password, role, profileImage } = req.body;
-
-  // Validation for required fields
-  if (!username || !email || !password) {
-    return next(errorHandler(400, 'All fields are required'));
-  }
-
   try {
-    // Email validation using regex
-    const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
-    if (!emailRegex.test(email)) {
-      return next(errorHandler(400, 'Invalid email format'));
+    const { username, email, password } = req.body;
+
+    if (!username || !email || !password) {
+      return next(errorHandler(400, 'Semua field harus diisi.'));
     }
 
-    // Username validation (lowercase letters and numbers)
-    if (!/^[a-z0-9]+$/.test(username)) {
-      return next(errorHandler(400, 'Username must contain only lowercase letters and numbers'));
-    }
-
-    // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return next(errorHandler(400, 'Email already in use'));
+      return next(errorHandler(400, 'Email sudah digunakan.'));
     }
 
-    // Assign role (only admin can assign 'admin' role)
-    const assignedRole = role === 'admin' ? 'admin' : 'user';
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ username, email, password: hashedPassword });
+    const savedUser = await newUser.save();
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Create new user
-    const newUser = new User({
-      username,
-      email,
-      password: hashedPassword,
-      role: assignedRole,
-      profilePicture: profileImage || `https://www.gravatar.com/avatar/${email}?d=identicon`,
-    });
-
-    await newUser.save();
-
-    // Generate JWT token
-    const token = generateToken(newUser);
-    const { password: pass, ...rest } = newUser._doc;
-
-    // Set token in cookie
-    setTokenCookie(res, token);
+    const token = generateToken(savedUser);
 
     res.status(201).json({
-      message: 'Signup successful',
-      user: rest,
+      message: 'Registrasi berhasil.',
+      user: { id: savedUser._id, username: savedUser.username, email: savedUser.email },
       access_token: token,
     });
   } catch (error) {
-    console.error('Error during signup:', error);
-    next(errorHandler(500, 'Error signing up'));
+    next(errorHandler(500, 'Terjadi kesalahan saat registrasi.'));
   }
 };
 
@@ -80,39 +48,30 @@ export const signup = async (req, res, next) => {
 export const signin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password) {
-      return next(errorHandler(400, 'Email and password are required'));
+      return next(errorHandler(400, 'Email dan password harus diisi.'));
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email });
     if (!user) {
-      return next(errorHandler(404, 'User not found'));
+      return next(errorHandler(404, 'Pengguna tidak ditemukan.'));
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return next(errorHandler(401, 'Invalid credentials'));
+      return next(errorHandler(401, 'Password salah.'));
     }
 
     const token = generateToken(user);
 
-    // Set token in cookie
-    setTokenCookie(res, token);
-
     res.status(200).json({
-      success: true,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        profilePicture: user.profilePicture,
-      },
+      message: 'Login berhasil.',
+      user: { id: user._id, username: user.username, email: user.email },
       access_token: token,
     });
   } catch (error) {
-    console.error('Error during signin:', error);
-    next(errorHandler(500, 'Error signing in'));
+    next(errorHandler(500, 'Terjadi kesalahan saat login.'));
   }
 };
 
@@ -161,4 +120,14 @@ export const getMe = (req, res, next) => {
     console.error('Error fetching user data:', error);
     next(errorHandler(500, 'Error fetching user data'));
   }
+};
+
+// ✅ Signout user
+export const signout = (req, res) => {
+  res.clearCookie('access_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+  res.status(200).json({ message: 'Signout berhasil.' });
 };
