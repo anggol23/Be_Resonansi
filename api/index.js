@@ -68,10 +68,15 @@ const limiter = rateLimit({
   max: 100, // Maksimal 100 request per IP
   message: 'Terlalu banyak permintaan, coba lagi nanti.',
 });
+
+// Pastikan untuk menonaktifkan trust proxy jika aplikasi tidak berjalan di belakang load balancer atau proxy
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', true); // Set ke true jika aplikasi Anda di belakang proxy (misalnya, pada server cloud)
+} else {
+  app.set('trust proxy', false); // Set ke false untuk pengembangan atau jika tidak menggunakan proxy
+}
+
 app.use(limiter);
-
-
-app.set('trust proxy', true);
 
 // Konfigurasi CORS
 app.use(
@@ -129,6 +134,7 @@ app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
 
+  // Log kesalahan menggunakan Winston
   logger.error(`🔥 Error: ${message}`);
 
   res.status(statusCode).json({
