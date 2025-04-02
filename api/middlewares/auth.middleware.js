@@ -31,7 +31,7 @@ export const verifyToken = async (req, res, next) => {
     // Gunakan promisify untuk membuat jwt.verify menggunakan async/await
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-    // Simpan data user yang terdecoding dari token
+    // Simpan data user yang terdecoding dari token ke req.user
     req.user = decoded; 
     next();
   } catch (err) {
