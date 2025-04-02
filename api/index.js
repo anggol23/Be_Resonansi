@@ -5,7 +5,6 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -61,22 +60,6 @@ const logger = winston.createLogger({
 app.use(express.json());
 app.use(cookieParser());
 app.use(helmet());
-
-// Rate limiting untuk mencegah serangan DDoS
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 menit
-  max: 100, // Maksimal 100 request per IP
-  message: 'Terlalu banyak permintaan, coba lagi nanti.',
-});
-
-// Pastikan untuk menonaktifkan trust proxy jika aplikasi tidak berjalan di belakang load balancer atau proxy
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', true); // Set ke true jika aplikasi Anda di belakang proxy (misalnya, pada server cloud)
-} else {
-  app.set('trust proxy', false); // Set ke false untuk pengembangan atau jika tidak menggunakan proxy
-}
-
-app.use(limiter);
 
 // Konfigurasi CORS
 app.use(
