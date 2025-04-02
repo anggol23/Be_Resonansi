@@ -35,9 +35,11 @@ export const verifyToken = async (req, res, next) => {
     req.user = decoded; 
     next();
   } catch (err) {
+    // Penanganan error jika token kedaluwarsa atau tidak valid
     if (err.name === "TokenExpiredError") {
       return next(errorHandler(403, "Forbidden! Token has expired. Silakan login kembali."));
     }
+    // Error umum jika token tidak valid
     return next(errorHandler(403, "Forbidden! Invalid token."));
   }
 };
@@ -51,6 +53,7 @@ export const verifyAdmin = (req, res, next) => {
   next();
 };
 
+// ✅ Fungsi untuk set token ke cookie
 export const setTokenCookie = (res, token) => {
   res.cookie('access_token', token, {
     httpOnly: true, // Token hanya bisa diakses di server, tidak di JavaScript
