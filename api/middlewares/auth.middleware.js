@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { errorHandler } from "../utils/errorHandler.js";
-import { promisify } from 'util';
+import { promisify } from "util";
 
 // ✅ Fungsi untuk mengekstrak token dari header atau cookie
 const extractToken = (req) => {

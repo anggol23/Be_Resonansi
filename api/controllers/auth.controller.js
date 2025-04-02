@@ -3,6 +3,7 @@ import User from '../models/user.model.js';
 import { errorHandler } from '../utils/errorHandler.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { setTokenCookie } from '../middlewares/auth.middleware.js';
 
 // Helper untuk generate token JWT
 const generateToken = (user) => {
@@ -61,19 +62,13 @@ export const signup = async (req, res, next) => {
     const token = generateToken(newUser);
     const { password: pass, ...rest } = newUser._doc;
 
-    // Kirim respons dengan cookie yang berisi token
-    res
-      .status(201)
-      .cookie('access_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // Secure hanya diaktifkan di produksi
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      })
-      .json({
-        message: 'Signup successful',
-        user: rest,
-        access_token: token,
-      });
+    // Set token di cookie
+    setTokenCookie(res, token);
+    res.status(201).json({
+      message: 'Signup successful',
+      user: rest,
+      access_token: token,
+    });
   } catch (error) {
     console.error('Error during signup:', error);
     next(errorHandler(500, 'Error signing up'));
@@ -100,13 +95,8 @@ export const signin = async (req, res, next) => {
 
     const token = generateToken(user);
 
-    res.cookie('access_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-    });
-
+    // Set token di cookie
+    setTokenCookie(res, token);
     res.status(200).json({
       success: true,
       user: {
@@ -148,14 +138,9 @@ export const google = async (req, res, next) => {
 
     const token = generateToken(user);
 
-    res
-      .status(200)
-      .cookie('access_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      })
-      .json({ user, access_token: token });
+    // Set token di cookie
+    setTokenCookie(res, token);
+    res.status(200).json({ user, access_token: token });
   } catch (error) {
     console.error('Error during Google login:', error);
     next(errorHandler(500, 'Error logging in with Google'));
