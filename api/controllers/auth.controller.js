@@ -49,28 +49,38 @@ export const signin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    // Validasi input
     if (!email || !password) {
       return next(errorHandler(400, 'Email dan password harus diisi.'));
     }
 
-    const user = await User.findOne({ email });
+    // Cari pengguna berdasarkan email
+    const user = await User.findOne({ email }).select('+password'); // Pastikan password disertakan
     if (!user) {
       return next(errorHandler(404, 'Pengguna tidak ditemukan.'));
     }
 
+    // Verifikasi password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return next(errorHandler(401, 'Password salah.'));
     }
 
-    const token = generateToken(user);
+    // Generate token
+    const token = jwt.sign(
+      { id: user._id.toString(), role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
+    // Kirim respons
     res.status(200).json({
       message: 'Login berhasil.',
       user: { id: user._id, username: user.username, email: user.email },
       access_token: token,
     });
   } catch (error) {
+    console.error('🔥 Error saat login:', error.message);
     next(errorHandler(500, 'Terjadi kesalahan saat login.'));
   }
 };
