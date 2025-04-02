@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { setTokenCookie } from '../middlewares/auth.middleware.js';
 
-// Helper untuk generate token JWT
+// Helper to generate JWT token
 const generateToken = (user) => {
   return jwt.sign(
     { id: user._id.toString(), role: user.role },
@@ -14,56 +14,57 @@ const generateToken = (user) => {
   );
 };
 
-// ✅ Signup - Pendaftaran pengguna baru
+// ✅ Signup - Register a new user
 export const signup = async (req, res, next) => {
   const { username, email, password, role, profileImage } = req.body;
 
-  // Validasi input
+  // Validation for required fields
   if (!username || !email || !password) {
     return next(errorHandler(400, 'All fields are required'));
   }
 
   try {
-    // Validasi format email menggunakan regex
+    // Email validation using regex
     const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
     if (!emailRegex.test(email)) {
       return next(errorHandler(400, 'Invalid email format'));
     }
 
-    // Validasi username hanya mengandung huruf kecil dan angka
+    // Username validation (lowercase letters and numbers)
     if (!/^[a-z0-9]+$/.test(username)) {
       return next(errorHandler(400, 'Username must contain only lowercase letters and numbers'));
     }
 
-    // Cek apakah email sudah terdaftar
+    // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return next(errorHandler(400, 'Email already in use'));
     }
 
-    // Tentukan role, hanya admin yang bisa memberi role admin
+    // Assign role (only admin can assign 'admin' role)
     const assignedRole = role === 'admin' ? 'admin' : 'user';
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12); // Salt round 12 untuk keamanan yang lebih baik
-    
-    // Simpan data user baru
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Create new user
     const newUser = new User({
       username,
       email,
       password: hashedPassword,
       role: assignedRole,
-      profilePicture: profileImage || `https://www.gravatar.com/avatar/${email}?d=identicon`, // Set default profile picture if not provided
+      profilePicture: profileImage || `https://www.gravatar.com/avatar/${email}?d=identicon`,
     });
 
     await newUser.save();
 
-    // Generate token
+    // Generate JWT token
     const token = generateToken(newUser);
     const { password: pass, ...rest } = newUser._doc;
 
-    // Set token di cookie
+    // Set token in cookie
     setTokenCookie(res, token);
+
     res.status(201).json({
       message: 'Signup successful',
       user: rest,
@@ -75,7 +76,7 @@ export const signup = async (req, res, next) => {
   }
 };
 
-// ✅ Signin - Login pengguna
+// ✅ Signin - Login user
 export const signin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -95,8 +96,9 @@ export const signin = async (req, res, next) => {
 
     const token = generateToken(user);
 
-    // Set token di cookie
+    // Set token in cookie
     setTokenCookie(res, token);
+
     res.status(200).json({
       success: true,
       user: {
@@ -104,9 +106,9 @@ export const signin = async (req, res, next) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        profilePicture: user.profilePicture, // Send profile picture URL
+        profilePicture: user.profilePicture,
       },
-      access_token: token, // Optional: if you want to send token to frontend
+      access_token: token,
     });
   } catch (error) {
     console.error('Error during signin:', error);
@@ -138,8 +140,9 @@ export const google = async (req, res, next) => {
 
     const token = generateToken(user);
 
-    // Set token di cookie
+    // Set token in cookie
     setTokenCookie(res, token);
+
     res.status(200).json({ user, access_token: token });
   } catch (error) {
     console.error('Error during Google login:', error);
