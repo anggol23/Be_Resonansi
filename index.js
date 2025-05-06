@@ -17,7 +17,7 @@ import { errorHandler } from './utils/errorHandler.js';
 import './middlewares/passport.js';
 
 dotenv.config();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const MONGO_URI = process.env.MONGO;
 const JWT_SECRET = process.env.JWT_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL;
