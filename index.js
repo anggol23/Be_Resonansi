@@ -20,7 +20,7 @@ import './middlewares/passport.js';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 const MONGO_URI = process.env.MONGO;
 const JWT_SECRET = process.env.JWT_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL;
@@ -40,7 +40,11 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: CLIENT_URL,
+  origin: [
+    'https://jurnalresonansi.com',  // Production Frontend
+    'https://api.jurnalresonansi.com',  // API Subdomain
+    'http://localhost:5173'  // Local Development
+  ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -98,7 +102,7 @@ app.use('/api/unduhan', unduhanRoutes);
 
 // Handler Error Global
 app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode;
   const message = err.message || "Internal Server Error";
   const stackTrace = process.env.NODE_ENV === 'development' ? err.stack : null;
 
