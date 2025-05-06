@@ -60,7 +60,6 @@ mongoose.connection.on("disconnected", () => console.warn("⚠️ MongoDB discon
 
 
 // Session and Passport
-const MongoDBStore = (await import('connect-mongodb-session')).default;
 const store = new MongoDBStore({
   uri: MONGO_URI,
   collection: 'sessions',
@@ -70,10 +69,14 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  store,
+  store: MongoStore.create({
+    mongoUrl: MONGO_URI,
+    collectionName: 'sessions',
+  }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 24
+    maxAge: 1000 * 60 * 60 * 24,
+    httpOnly: true,
   }
 }));
 
