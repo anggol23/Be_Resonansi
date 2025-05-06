@@ -15,6 +15,7 @@ import commentRoutes from './routes/comment.route.js';
 import unduhanRoutes from './routes/unduhan.route.js';
 import { errorHandler } from './utils/errorHandler.js';
 import './middlewares/passport.js';
+import MongoDBStore from 'connect-mongodb-session';
 
 dotenv.config();
 const PORT = process.env.PORT;
@@ -59,14 +60,19 @@ mongoose.connection.on("disconnected", () => console.warn("⚠️ MongoDB discon
 
 
 // Session and Passport
+const store = new MongoDBStore({
+  uri: MONGO_URI,
+  collection: 'mySessions',
+});
+
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,
+  store,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24, 
+    maxAge: 1000 * 60 * 60 * 24
   }
 }));
 
