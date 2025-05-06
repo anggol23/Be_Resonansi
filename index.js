@@ -60,11 +60,6 @@ mongoose.connection.on("disconnected", () => console.warn("⚠️ MongoDB discon
 
 
 // Session and Passport
-const store = new MongoDBStore({
-  uri: MONGO_URI,
-  collection: 'sessions',
-});
-
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
