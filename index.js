@@ -4,10 +4,12 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
+import MongoStore from 'connect-mongo'; // ✅ Import yang benar
 import passport from 'passport';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+
 import userRoutes from './routes/user.route.js';
 import authRoutes from './routes/auth.route.js';
 import postRoutes from './routes/post.route.js';
@@ -16,14 +18,16 @@ import unduhanRoutes from './routes/unduhan.route.js';
 import { errorHandler } from './utils/errorHandler.js';
 import './middlewares/passport.js';
 
-
 dotenv.config();
-const PORT = process.env.PORT;
+
+const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO;
 const JWT_SECRET = process.env.JWT_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL;
-if (!MONGO_URI || !JWT_SECRET) {
-  console.error("❌ ERROR: Variabel MONGO atau JWT_SECRET belum dikonfigurasi di .env");
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
+if (!MONGO_URI || !JWT_SECRET || !SESSION_SECRET) {
+  console.error("❌ ERROR: Variabel .env belum lengkap. Perlu MONGO, JWT_SECRET, SESSION_SECRET");
   process.exit(1);
 }
 
@@ -32,7 +36,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Middleware
+// Middleware umum
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
@@ -43,7 +47,7 @@ app.use(cors({
   exposedHeaders: ["Authorization"],
 }));
 
-// MongoDB Connection
+// Koneksi MongoDB
 const connectDB = async () => {
   try {
     await mongoose.connect(MONGO_URI);
@@ -57,11 +61,9 @@ mongoose.connection.on("connected", () => console.log("✅ MongoDB is connected"
 mongoose.connection.on("error", (err) => console.error("❌ MongoDB Error:", err));
 mongoose.connection.on("disconnected", () => console.warn("⚠️ MongoDB disconnected"));
 
-
-
-// Session and Passport
+// Session dan Passport
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
@@ -78,25 +80,23 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// API Routes
+// Routes API
 app.use('/api/user', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/unduhan', unduhanRoutes);
 
-// Serve Static Files for Production
+// Serve static (jika frontend sudah dibuild)
 // const clientPath = path.join(__dirname, '../client/dist');
 // if (fs.existsSync(clientPath)) {
 //   app.use(express.static(clientPath));
 //   app.get('*', (req, res) => {
 //     res.sendFile(path.join(clientPath, 'index.html'));
 //   });
-// } else {
-//   console.warn("⚠️ WARNING: Folder 'client/dist' tidak ditemukan. Pastikan frontend sudah di-build.");
 // }
 
-// Global Error Handler
+// Handler Error Global
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal Server Error";
@@ -111,7 +111,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server setelah koneksi MongoDB berhasil
+// Jalankan server setelah MongoDB siap
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
