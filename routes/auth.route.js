@@ -3,14 +3,13 @@ import jwt from "jsonwebtoken";
 import passport from "passport";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
-import { signup, signin, google, getMe } from "../controllers/auth.controller.js";
+import { signup, signin, getMe } from "../controllers/auth.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
 router.post("/signup", signup);
 router.post("/signin", signin);
-router.post("/google", google);
 router.get("/me", verifyToken, getMe);
 
 // 🔐 Redirect ke Google
