@@ -4,7 +4,7 @@ import User from '../models/user.model.js';
 
 
 // Kategori yang diizinkan
-const allowedCategories = ['pendidikan', 'sosial', 'ekonomi', 'politik'];
+const allowedCategories = ['pendidikan', 'sosial', 'ekonomi', 'politik', 'cerpen', 'puisi'];
 
 // 📝 CREATE POST
 export const create = async (req, res, next) => {
