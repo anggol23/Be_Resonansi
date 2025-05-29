@@ -61,7 +61,7 @@ export const publishFile = (req, res, next) => {
 // 🔸 GET Semua File (tanpa fileUrl)
 export const getFiles = async (req, res, next) => {
   try {
-    const files = await Unduhan.find({}, { fileUrl: 0, public_id: 0 })
+    const files = await Unduhan.find({}, { public_id: 0 })
       .sort({ createdAt: -1 })
       .lean();
     res.status(200).json(files);
