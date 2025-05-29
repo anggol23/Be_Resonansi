@@ -6,7 +6,7 @@ import { errorHandler } from "../utils/errorHandler.js";
 
 // 🔹 Konfigurasi Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,  
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
@@ -16,8 +16,7 @@ const fileStorage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "unduhan",
-    resource_type: "auto",
-    type: "upload",
+    resource_type: "raw",            
     format: async (req, file) => file.originalname.split(".").pop(),
     public_id: (req, file) => `${Date.now()}-${file.originalname}`,
   },
@@ -45,7 +44,8 @@ export const publishFile = (req, res, next) => {
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        fileUrl: req.file.path, 
+        fileUrl: req.file.path,        
+        public_id: req.file.filename,   
         imagePath: req.body.imagePath,
         uploadedBy: req.user ? req.user.id : null,
       });
@@ -61,7 +61,7 @@ export const publishFile = (req, res, next) => {
 // 🔸 GET Semua File (tanpa fileUrl)
 export const getFiles = async (req, res, next) => {
   try {
-    const files = await Unduhan.find({}, { fileUrl: 0 })
+    const files = await Unduhan.find({}, { fileUrl: 0, public_id: 0 })
       .sort({ createdAt: -1 })
       .lean();
     res.status(200).json(files);
@@ -77,20 +77,25 @@ export const downloadFile = async (req, res, next) => {
     const file = await Unduhan.findById(fileId);
     if (!file) return res.status(404).json({ message: "File tidak ditemukan" });
 
-    return res.redirect(file.fileUrl); 
+    return res.redirect(file.fileUrl);
   } catch (error) {
     next(errorHandler(500, "Gagal mengunduh file"));
   }
 };
 
-// 🔸 DELETE Hapus File
+// 🔸 DELETE Hapus File (dari DB dan Cloudinary)
 export const deleteFile = async (req, res, next) => {
   try {
     const fileId = req.params.id;
     const file = await Unduhan.findById(fileId);
     if (!file) return res.status(404).json({ message: "File tidak ditemukan" });
 
+    // Hapus file dari Cloudinary pakai public_id & resource_type 'raw'
+    await cloudinary.uploader.destroy(file.public_id, { resource_type: "raw" });
+
+    // Hapus data file dari MongoDB
     await Unduhan.findByIdAndDelete(fileId);
+
     res.json({ message: "File berhasil dihapus" });
   } catch (error) {
     next(errorHandler(500, "Gagal menghapus file"));
