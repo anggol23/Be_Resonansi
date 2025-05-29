@@ -2,14 +2,16 @@ import mongoose from 'mongoose';
 
 const UnduhanSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true }, // Judul untuk tampilan di UI
-    filename: { type: String, required: true, unique: true }, // Nama file unik
-    originalname: { type: String, required: true }, // Nama asli dari file
-    size: { type: Number, required: true }, // Ukuran file dalam bytes
-    mimetype: { type: String, required: true }, // Jenis file (image/pdf/etc)
-    path: { type: String, required: true }, // Path untuk mengakses file
-    imagePath: { type: String, required: true }, // Path untuk gambar terkait
-    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false }, // Bisa null jika upload anonim
+    title: { type: String, required: true }, // Judul file untuk tampilan
+    originalname: { type: String, required: true }, // Nama asli file saat diupload
+    mimetype: { type: String, required: true }, // Jenis MIME (application/pdf, dsb.)
+    size: { type: Number, required: true }, // Ukuran file dalam byte
+    fileData: { type: Buffer, required: true }, // 🔄 ISI FILE disimpan langsung
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false
+    }, 
   },
   { timestamps: true }
 );
