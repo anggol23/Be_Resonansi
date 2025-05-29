@@ -29,6 +29,7 @@ const upload = multer({ storage: fileStorage }).single("file");
 export const publishFile = (req, res, next) => {
   upload(req, res, async (err) => {
     if (err) {
+      console.error("Upload error:", err);
       return next(errorHandler(400, err.message || "Gagal mengunggah file"));
     }
 
