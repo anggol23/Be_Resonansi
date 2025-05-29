@@ -16,7 +16,8 @@ const fileStorage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "unduhan",
-    resource_type: "raw",
+    resource_type: "auto",
+    type: "upload",
     format: async (req, file) => file.originalname.split(".").pop(),
     public_id: (req, file) => `${Date.now()}-${file.originalname}`,
   },
