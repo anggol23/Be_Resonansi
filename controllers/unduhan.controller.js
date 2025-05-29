@@ -1,30 +1,31 @@
 import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 import Unduhan from "../models/unduhan.model.js";
 import { errorHandler } from "../utils/errorHandler.js";
 
-// 🔹 Konfigurasi multer untuk simpan file ke memory
-const storage = multer.memoryStorage();
+// 🔹 Konfigurasi Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-// 🔹 Validasi jenis file yang diperbolehkan
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/octet-stream",
-  ];
-
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error(`⛔ Format tidak diizinkan: ${file.mimetype}`), false);
-  }
-};
+// 🔹 Storage Cloudinary khusus file (bukan gambar)
+const fileStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "unduhan",
+    resource_type: "raw",
+    format: async (req, file) => file.originalname.split(".").pop(),
+    public_id: (req, file) => `${Date.now()}-${file.originalname}`,
+  },
+});
 
 // 🔹 Middleware upload (hanya satu file)
-const upload = multer({ storage, fileFilter }).single("file");
+const upload = multer({ storage: fileStorage }).single("file");
 
-// 🔹 Upload file (POST)
+// 🔸 POST Upload file
 export const publishFile = (req, res, next) => {
   upload(req, res, async (err) => {
     if (err) {
@@ -32,15 +33,9 @@ export const publishFile = (req, res, next) => {
     }
 
     try {
-      if (!req.file) {
-        return next(errorHandler(400, "File harus diunggah"));
-      }
-      if (!req.body.filename) {
-        return next(errorHandler(400, "Nama file (title) harus diisi"));
-      }
-      if (!req.body.imagePath) {
-        return next(errorHandler(400, "imagePath (Cloudinary URL) wajib diisi"));
-      }
+      if (!req.file) return next(errorHandler(400, "File harus diunggah"));
+      if (!req.body.filename) return next(errorHandler(400, "Nama file wajib diisi"));
+      if (!req.body.imagePath) return next(errorHandler(400, "imagePath wajib diisi"));
 
       const newFile = new Unduhan({
         title: req.body.filename,
@@ -48,11 +43,10 @@ export const publishFile = (req, res, next) => {
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        fileData: req.file.buffer,
+        fileUrl: req.file.path, 
         imagePath: req.body.imagePath,
         uploadedBy: req.user ? req.user.id : null,
-});
-
+      });
 
       const savedFile = await newFile.save();
       res.status(201).json(savedFile);
@@ -62,49 +56,37 @@ export const publishFile = (req, res, next) => {
   });
 };
 
-// 🔹 Ambil daftar file (GET)
+// 🔸 GET Semua File (tanpa fileUrl)
 export const getFiles = async (req, res, next) => {
   try {
-    const files = await Unduhan.find({}, { fileData: 0 }) // exclude fileData (berat)
+    const files = await Unduhan.find({}, { fileUrl: 0 })
       .sort({ createdAt: -1 })
       .lean();
-
     res.status(200).json(files);
   } catch (error) {
     next(errorHandler(500, "Gagal mengambil daftar file"));
   }
 };
 
-// 🔹 Unduh file (GET)
+// 🔸 GET Unduh File (redirect ke Cloudinary)
 export const downloadFile = async (req, res, next) => {
   try {
     const fileId = req.params.id;
     const file = await Unduhan.findById(fileId);
+    if (!file) return res.status(404).json({ message: "File tidak ditemukan" });
 
-    if (!file) {
-      return res.status(404).json({ message: "File tidak ditemukan" });
-    }
-
-    res.set({
-      "Content-Type": file.mimetype,
-      "Content-Disposition": `attachment; filename="${file.originalname}"`,
-      "Content-Length": file.size,
-    });
-
-    return res.send(file.fileData);
+    return res.redirect(file.fileUrl); 
   } catch (error) {
     next(errorHandler(500, "Gagal mengunduh file"));
   }
 };
 
-// 🔹 Hapus file (DELETE)
+// 🔸 DELETE Hapus File
 export const deleteFile = async (req, res, next) => {
   try {
     const fileId = req.params.id;
     const file = await Unduhan.findById(fileId);
-    if (!file) {
-      return res.status(404).json({ message: "File tidak ditemukan" });
-    }
+    if (!file) return res.status(404).json({ message: "File tidak ditemukan" });
 
     await Unduhan.findByIdAndDelete(fileId);
     res.json({ message: "File berhasil dihapus" });
