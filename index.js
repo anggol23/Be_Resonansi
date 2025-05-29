@@ -41,9 +41,9 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
   origin: [
-    'https://jurnalresonansi.com',  // Production Frontend
-    'https://api.jurnalresonansi.com',  // API Subdomain
-    'http://localhost:5173'  // Local Development
+    'https://jurnalresonansi.com',  
+    'https://api.jurnalresonansi.com',  
+    'http://localhost:5173'  
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
