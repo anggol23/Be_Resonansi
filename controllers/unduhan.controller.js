@@ -44,13 +44,15 @@ export const publishFile = (req, res, next) => {
 
       const newFile = new Unduhan({
         title: req.body.filename,
+        filename: req.file.originalname,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        fileData: req.file.buffer, // ⬅️ simpan isi file
-        imagePath: req.body.imagePath, // ⬅️ URL dari Cloudinary
+        fileData: req.file.buffer,
+        imagePath: req.body.imagePath,
         uploadedBy: req.user ? req.user.id : null,
-      });
+});
+
 
       const savedFile = await newFile.save();
       res.status(201).json(savedFile);
