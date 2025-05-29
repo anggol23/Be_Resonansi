@@ -2,36 +2,32 @@ import multer from "multer";
 import Unduhan from "../models/unduhan.model.js";
 import { errorHandler } from "../utils/errorHandler.js";
 
-// 🔹 Ganti storage multer ke memoryStorage supaya file disimpan di memory sebagai buffer
+// 🔹 Konfigurasi multer untuk simpan file ke memory
 const storage = multer.memoryStorage();
 
-// 🔹 Filter jenis file yang diizinkan
+// 🔹 Validasi jenis file yang diperbolehkan
 const fileFilter = (req, file, cb) => {
-  console.log("📂 Upload:", file.originalname, "📝 MIME:", file.mimetype);
-
-  const fileTypes = [
+  const allowedTypes = [
     "application/pdf",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/octet-stream",
   ];
-  // Kalau kamu ingin upload image juga, tambahkan tipe image di sini dan sesuaikan
-  if (fileTypes.includes(file.mimetype)) {
+
+  if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    console.error("⛔ Format tidak diizinkan:", file.mimetype);
-    cb(new Error(`Format tidak diizinkan: ${file.mimetype}`), false);
+    cb(new Error(`⛔ Format tidak diizinkan: ${file.mimetype}`), false);
   }
 };
 
-// 🔹 Middleware upload file, hanya satu file dengan fieldname "file"
+// 🔹 Middleware upload (hanya satu file)
 const upload = multer({ storage, fileFilter }).single("file");
 
-// 🔹 Controller upload file ke MongoDB (simpan file langsung di DB dalam bentuk Buffer)
+// 🔹 Upload file (POST)
 export const publishFile = (req, res, next) => {
   upload(req, res, async (err) => {
     if (err) {
-      console.error("⛔ Multer error:", err);
       return next(errorHandler(400, err.message || "Gagal mengunggah file"));
     }
 
@@ -40,7 +36,10 @@ export const publishFile = (req, res, next) => {
         return next(errorHandler(400, "File harus diunggah"));
       }
       if (!req.body.filename) {
-        return next(errorHandler(400, "Nama file harus diisi"));
+        return next(errorHandler(400, "Nama file (title) harus diisi"));
+      }
+      if (!req.body.imagePath) {
+        return next(errorHandler(400, "imagePath (Cloudinary URL) wajib diisi"));
       }
 
       const newFile = new Unduhan({
@@ -48,29 +47,33 @@ export const publishFile = (req, res, next) => {
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        fileData: req.file.buffer, // Simpan file di field Buffer
+        fileData: req.file.buffer, // ⬅️ simpan isi file
+        imagePath: req.body.imagePath, // ⬅️ URL dari Cloudinary
         uploadedBy: req.user ? req.user.id : null,
       });
 
       const savedFile = await newFile.save();
       res.status(201).json(savedFile);
     } catch (error) {
-      next(error);
+      next(errorHandler(500, "Gagal menyimpan file"));
     }
   });
 };
 
-// 🔹 Controller ambil list file tanpa field fileData agar response tidak berat
+// 🔹 Ambil daftar file (GET)
 export const getFiles = async (req, res, next) => {
   try {
-    const files = await Unduhan.find({}, { fileData: 0 }).sort({ createdAt: -1 }).lean();
+    const files = await Unduhan.find({}, { fileData: 0 }) // exclude fileData (berat)
+      .sort({ createdAt: -1 })
+      .lean();
+
     res.status(200).json(files);
   } catch (error) {
     next(errorHandler(500, "Gagal mengambil daftar file"));
   }
 };
 
-// 🔹 Controller download file (ambil langsung dari MongoDB)
+// 🔹 Unduh file (GET)
 export const downloadFile = async (req, res, next) => {
   try {
     const fileId = req.params.id;
@@ -88,12 +91,11 @@ export const downloadFile = async (req, res, next) => {
 
     return res.send(file.fileData);
   } catch (error) {
-    console.error("⛔ Error saat mengunduh file:", error);
-    next(errorHandler(500, "Terjadi kesalahan saat mengunduh file"));
+    next(errorHandler(500, "Gagal mengunduh file"));
   }
 };
 
-// 🔹 Controller hapus file dari MongoDB (tidak ada file di disk)
+// 🔹 Hapus file (DELETE)
 export const deleteFile = async (req, res, next) => {
   try {
     const fileId = req.params.id;
@@ -103,9 +105,8 @@ export const deleteFile = async (req, res, next) => {
     }
 
     await Unduhan.findByIdAndDelete(fileId);
-
     res.json({ message: "File berhasil dihapus" });
   } catch (error) {
-    next(error);
+    next(errorHandler(500, "Gagal menghapus file"));
   }
 };
