@@ -106,6 +106,11 @@ app.use((err, req, res, next) => {
   const message = err.message || "Internal Server Error";
   const stackTrace = process.env.NODE_ENV === 'development' ? err.stack : null;
 
+  app.get("/ping", (req, res) => {
+  res.status(200).send("OK");
+});
+
+
   console.error(`🔥 Error: ${message}`);
   res.status(statusCode).json({
     success: false,
